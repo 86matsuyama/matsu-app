@@ -53,8 +53,12 @@ export default function VoiceRecorder({ userName, onAnalysisComplete }: VoiceRec
 
   const startRecording = async () => {
     try {
-      setError(null);
-      setSuccess(null);
+  // Reset all states before starting new recording
+  setError(null);
+  setSuccess(null);
+  setAudioURL(null);
+  setRecordingTime(0);
+  audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -133,8 +137,10 @@ export default function VoiceRecorder({ userName, onAnalysisComplete }: VoiceRec
         body: JSON.stringify({ audioData: audioURL }),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "AI処理に失敗しました");
+       const errorData = await response.json();
+  console.error("API Error:", errorData);
+  const errorMessage = errorData.error || errorData.details || "AI処理に失敗しました";
+  throw new Error(errorMessage);
       }
       const data = await response.json();
       onAnalysisComplete(data.result);
@@ -151,9 +157,12 @@ export default function VoiceRecorder({ userName, onAnalysisComplete }: VoiceRec
         const saveData = await saveResponse.json();
         setSuccess(`分析完了！Google Driveに保存しました: ${saveData.fileName}`);
       } else {
-        throw new Error("Google Driveへの保存に失敗しました");
-      }
-    } catch (err: any) {
+    const saveError = await saveResponse.json();
+    console.error("Save Error:", saveError);
+    throw new Error(saveError.error || "Google Driveへの保存に失敗しました");
+  }
+  } catch (err: any) {
+    console.error("Analysis Error:", err);
       setError(err.message || "エラーが発生しました");
     } finally {
       setIsProcessing(false);
